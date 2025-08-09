@@ -178,13 +178,13 @@ def main(argv):
                     (empty line)
                     <html>"""
 
-
+                    # this should be hardcoded to work 
                     headers_to_send = [
-
-                        f"{server}: {CoffeePot}\r\n",
-                        f"Content-Type: {content_type}\r\n",
-                        f"Date: {current_date}\r\n"
-
+                        "HTCPCP/1.1 200 OK\r\n",
+                        "Server: CoffeePot\r\n",
+                        "Content-Type: application/coffee-pot-command\r\n",
+                        f"Date: {current_date}\r\n",
+                        "\r\n"
                     ]
 
                     response = create_request_response(
@@ -196,10 +196,12 @@ def main(argv):
                     logging.info("Sending response: " + final_response)
 
                 else:
+                    # DONE 
                     # TODO: Handle other cases that passes ensure_request_is_valid but isn't supported
                     # if we reach here, request is valid, but the server doesn't support this feature
                     # e.g: 406
                     # final_response = ""
+                    print(list(ACCEPTED_ADDITIONS.keys()))
                     final_response = "HTCPCP/1.1 406 Not Acceptable\r\n\r\n"
 
                 connection.send(bytes(final_response.encode("utf-8")))
@@ -245,9 +247,36 @@ def ensure_request_is_valid(
     """
     # 1. Validate the scheme against accepted_coffee_schemes
     scheme, hostname = url.split("://")
-    if scheme in accepted_coffee_schemes: 
-        
+    if scheme not in accepted_coffee_schemes: 
+        return send_error_message(
+            connection,
+            b"HTCPCP/1.1 400 Bad Request\r\n\r\n",
+        )
+
+    # 2. Check for correct URL path format <SCHEME>://<HOSTNAME>
+    if not hostname or hostname not in [HOSTNAME, LOCALHOST]:
+        return send_error_message(
+            connection,
+            b"HTCPCP/1.1 404 Not Found\r\n\r\n",
+        )
     
+    if method not in accepted_methods:
+        return send_error_message(
+            connection,
+            b"HTCPCP/1.1 405 Method Not Allowed\r\n\r\n",
+        )
+
+    if content_type != "application/coffee-pot-command":
+        return send_error_message(
+            connection,
+            b"HTCPCP/1.1 415 Unsupported Media Type\r\n\r\n",
+        )
+    
+    if requested_pot != HOSTNAME and requested_pot != LOCALHOST:
+        return send_error_message(
+            connection,
+            b"HTCPCP/1.1 404 Not Found\r\n\r\n",
+        )
 
     return True
 
