@@ -161,7 +161,31 @@ def main(argv):
                     current_date = datetime.datetime.now().strftime(TIME_STRING_FORMAT)
 
                     ## TODO: Create response headers
-                    headers_to_send = []
+                    """""
+                    The status line: HTCPCP/1.1 Status-Code Reason-Phrase. At this point of our code, our Status-Code should be 200. Find out what Reason-Phrase 200 should have.
+                    Subsequent strings: header fields. It should have the following header fields:
+                    Server field name with CoffeePot as its value
+                    Content-Type field name with the appropriate media type as its value
+                    Date field name with current_date as its value
+                    Add a line break (\r\n) at the end to mark the end of the header and the beginning of the body
+                    Additionally, each line in the header should be separated by line break: \r\n and each field name followed by a colon (:) and a leading whitespace.
+
+                    Here’s an example for HTTP response message. This is for your reference only, adapt the header fields for HTCPCP:
+
+                    HTTP/1.1 200 OK
+                    Content-Type: text/html
+                    Date: Tue, 09 Apr 2024 18:37:30
+                    (empty line)
+                    <html>"""
+
+
+                    headers_to_send = [
+
+                        f"{server}: {CoffeePot}\r\n",
+                        f"Content-Type: {content_type}\r\n",
+                        f"Date: {current_date}\r\n"
+
+                    ]
 
                     response = create_request_response(
                         method, message, additions, pour_milk_start
@@ -175,7 +199,8 @@ def main(argv):
                     # TODO: Handle other cases that passes ensure_request_is_valid but isn't supported
                     # if we reach here, request is valid, but the server doesn't support this feature
                     # e.g: 406
-                    final_response = ""
+                    # final_response = ""
+                    final_response = "HTCPCP/1.1 406 Not Acceptable\r\n\r\n"
 
                 connection.send(bytes(final_response.encode("utf-8")))
                 print(f"\n\nHTCPCP Response Crafted:\n{final_response}")
@@ -218,6 +243,12 @@ def ensure_request_is_valid(
 
     For each case 1 to 5 above, call send_error_message(error_message) with an appropriately crafted error message containing status code and reason-phrase. The arg not_found_message gives you a general idea of the format of the expected error message conforming to HTCPCP/1.0 protocol.
     """
+    # 1. Validate the scheme against accepted_coffee_schemes
+    scheme, hostname = url.split("://")
+    if scheme in accepted_coffee_schemes: 
+        
+    
+
     return True
 
 
