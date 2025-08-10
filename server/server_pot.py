@@ -33,8 +33,8 @@ import json
 import os
 
 # standard constants
-brewing_file = "db/currently_brewing.json"
-past_coffee_file = "db/past_coffees.json"
+brewing_file = os.path.join(parent_dir, "db", "currently_brewing.json")
+past_coffee_file = os.path.join(parent_dir, "db", "past_coffees.json")
 
 
 def main(argv):
@@ -42,7 +42,8 @@ def main(argv):
     random.seed(datetime.datetime.now().timestamp())
 
     # setup logs
-    logging.basicConfig(filename="log/coffeepot.log", level=logging.DEBUG)
+    log_file = os.path.join(parent_dir, "log", "coffeepot.log")
+    logging.basicConfig(filename=log_file, level=logging.DEBUG)
 
     # instantiate server
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -74,7 +75,7 @@ def main(argv):
         # Restart `accept` call every cycle, so a `SIGINT` can go through (for Windows)
         try:
             connection, address = server.accept()
-        except TimeoutError:
+        except socket.timeout:
             continue
 
         print("\n====================\nConnected to: ", address)
@@ -246,8 +247,20 @@ def ensure_request_is_valid(
     For each case 1 to 5 above, call send_error_message(error_message) with an appropriately crafted error message containing status code and reason-phrase. The arg not_found_message gives you a general idea of the format of the expected error message conforming to HTCPCP/1.0 protocol.
     """
     # 1. Validate the scheme against accepted_coffee_schemes
-    scheme, hostname = url.split("://")
-    if scheme not in accepted_coffee_schemes: 
+    try:
+        if "://" not in url:
+            return send_error_message(
+                connection,
+                b"HTCPCP/1.1 400 Bad Request\r\n\r\n",
+            )
+        
+        scheme, hostname = url.split("://", 1)
+        if scheme not in accepted_coffee_schemes:
+            return send_error_message(
+                connection,
+                b"HTCPCP/1.1 400 Bad Request\r\n\r\n",
+            )
+    except Exception:
         return send_error_message(
             connection,
             b"HTCPCP/1.1 400 Bad Request\r\n\r\n",
@@ -260,19 +273,37 @@ def ensure_request_is_valid(
             b"HTCPCP/1.1 404 Not Found\r\n\r\n",
         )
     
+    # 3. Validate the HTTP method
     if method not in accepted_methods:
         return send_error_message(
             connection,
-            b"HTCPCP/1.1 405 Method Not Allowed\r\n\r\n",
+            b"HTCPCP/1.1 501 Not Implemented\r\n\r\n",
         )
 
-    if content_type != "application/coffee-pot-command":
+    # 4. Check the content type format to conform to "application/coffee-pot-command"
+    if content_type and len(content_type) > 0:
+        try:
+            ct_value = content_type[0].split(":", 1)[1].strip()
+            if ct_value != "application/coffee-pot-command":
+                return send_error_message(
+                    connection,
+                    b"HTCPCP/1.1 415 Unsupported Media Type\r\n\r\n",
+                )
+        except Exception:
+            return send_error_message(
+                connection,
+                b"HTCPCP/1.1 400 Bad Request\r\n\r\n",
+            )
+    
+    # 5. Specific check for "tea" pot request
+    if "tea" in url.lower():
         return send_error_message(
             connection,
-            b"HTCPCP/1.1 415 Unsupported Media Type\r\n\r\n",
+            b"HTCPCP/1.1 418 I'm a teapot\r\n\r\n",
         )
     
-    if requested_pot != HOSTNAME and requested_pot != LOCALHOST:
+    # Additional check for requested pot
+    if requested_pot and requested_pot != HOSTNAME and requested_pot != LOCALHOST:
         return send_error_message(
             connection,
             b"HTCPCP/1.1 404 Not Found\r\n\r\n",
